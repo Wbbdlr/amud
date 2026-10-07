@@ -13,6 +13,7 @@ import '../../core/search.dart';
 import '../../core/fonts.dart';
 import '../../core/providers.dart';
 import '../../core/settings.dart';
+import '../../core/sync/sync_service.dart';
 import '../../core/titles.dart';
 import '../update/update_service.dart';
 import '../alerts/alerts.dart';
@@ -29,6 +30,7 @@ class SettingsScreen extends ConsumerWidget {
     final manifest = ref.watch(manifestProvider).value;
     final fonts = ref.watch(fontsProvider);
     final update = ref.watch(updateProvider);
+    final sync = ref.watch(syncProvider);
     void set(AppSettings Function(AppSettings) f) => n.update(f);
     void minhag(Minhagim Function(Minhagim) f) => n.update((x) => x.copyWith(minhagim: f(x.minhagim)));
 
@@ -44,6 +46,14 @@ class SettingsScreen extends ConsumerWidget {
       body: ListFilter(
         query: query,
         child: ListView(padding: const EdgeInsets.only(bottom: 32), children: [
+        AdaptiveSection(header: context.tr('Your devices'), children: [
+          AdaptiveNavTile(
+            icon: Icons.sync,
+            title: context.tr('Sync across devices'),
+            subtitle: sync.enabled ? context.tr('On') : context.tr('Keep settings and data the same on your phone, computer and the web'),
+            onTap: () => context.push('/settings/sync'),
+          ),
+        ]),
         AdaptiveSection(header: context.tr('Location'), children: [
           AdaptiveNavTile(
             icon: Icons.place_outlined,

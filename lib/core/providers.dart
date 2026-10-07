@@ -12,8 +12,12 @@ import 'day_start.dart';
 import 'settings.dart';
 import 'storage.dart';
 
-/// Overridden in main() once Hive is open.
+/// Overridden in main() once Hive is open. main() makes it watch
+/// [storageRevisionProvider], so a new view replaces it after sync saves
+/// changes from another device and everything that reads storage reloads.
 final storageProvider = Provider<Storage>((ref) => throw UnimplementedError('storage not initialized'));
+
+final storageRevisionProvider = StateProvider<int>((ref) => 0);
 
 class _BundleSource implements TextSource {
   @override

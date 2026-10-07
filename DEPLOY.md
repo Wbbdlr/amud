@@ -98,3 +98,14 @@ Installed PWAs pick up the new version the next time they're opened.
 
 These are released from GitHub Actions, not deployed here. Push a `v*` tag;
 see the README's "Releasing" section.
+
+## Sync across devices (optional)
+
+The app's *Settings → Sync across devices* talks to `tool/sync/server.py`
+(SQLite, no dependencies) at `/app/api/sync/`. Start it with the compose
+profile: `docker compose --profile sync up -d --build`. There are no
+accounts: a random sync code on the device derives a bearer token (the
+server keeps its hash) and an AES-256-GCM key the server never sees. The
+installed apps use `https://amud.page/app/api/sync/`; build with
+`--dart-define=SYNC_SERVER=https://…/app/api/sync/` to point them elsewhere.
+Tests: `cd tool/sync && python3 -m unittest test_server`.

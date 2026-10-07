@@ -204,6 +204,13 @@ class _WelcomePage extends ConsumerWidget {
           options: const [(true, 'Ashkenazi (Shabbos)'), (false, 'Sephardi (Shabbat)')],
           onChanged: (v) => set((x) => x.copyWith(ashkenaziSpelling: v)),
         ),
+        const SizedBox(height: 24),
+        // Linking brings in the person's settings, setup included.
+        TextButton.icon(
+          icon: const Icon(Icons.sync),
+          label: Text(context.tr('Already use Amud? Sync with your other devices')),
+          onPressed: () => context.push('/settings/sync?setup=1'),
+        ),
       ],
     );
   }

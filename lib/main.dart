@@ -14,6 +14,7 @@ import 'core/fonts.dart';
 import 'core/providers.dart';
 import 'core/settings.dart';
 import 'core/storage.dart';
+import 'core/sync/sync_service.dart';
 import 'features/alerts/alerts.dart';
 import 'features/alerts/notification_backend.dart';
 import 'features/home/card_registry.dart';
@@ -34,7 +35,10 @@ Future<void> main(List<String> args) async {
 
   final initialLink = args.map(Uri.tryParse).whereType<Uri>().map(routeFromLink).whereType<String>().firstOrNull;
   final container = ProviderContainer(overrides: [
-    storageProvider.overrideWithValue(storage),
+    storageProvider.overrideWith((ref) {
+      ref.watch(storageRevisionProvider);
+      return storage.view();
+    }),
     cardRegistryProvider.overrideWithValue(registry),
   ]);
   await container.read(fontsProvider.notifier).loadAll();
@@ -62,6 +66,8 @@ Future<void> main(List<String> args) async {
 
   // Plan notifications after first frame (never blocks startup).
   Future<void>.delayed(const Duration(seconds: 1), () => container.read(alertSchedulerProvider).reschedule());
+  // Bring in what changed on the person's other devices.
+  Future<void>.delayed(const Duration(seconds: 2), () => container.read(syncProvider.notifier).sync());
   // Look for a new release in the background (daily; Android/desktop).
   Future<void>.delayed(const Duration(seconds: 5), () => container.read(updateProvider.notifier).autoCheck());
 }
@@ -103,6 +109,7 @@ class _LifecycleState extends ConsumerState<_Lifecycle> with WidgetsBindingObser
       analytics.checkIn();
       ref.invalidate(nowProvider);
       ref.read(alertSchedulerProvider).reschedule();
+      ref.read(syncProvider.notifier).sync();
       // Back from the "Install unknown apps" setting during an update.
       ref.read(updateProvider.notifier).resumed();
     }
