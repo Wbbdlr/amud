@@ -23,6 +23,7 @@ import 'features/settings/font_gallery_screen.dart';
 import 'features/settings/location_screen.dart';
 import 'features/settings/nav_tabs_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/settings/sync_screen.dart';
 import 'features/setup/launch_animation.dart';
 import 'features/setup/setup_screen.dart';
 import 'features/update/update_screen.dart';
@@ -153,6 +154,7 @@ final routerProvider = Provider<GoRouter>((ref) => GoRouter(
                   GoRoute(path: 'cards', parentNavigatorKey: _rootKey, builder: (c, s) => const CardGalleryScreen()),
                   GoRoute(path: 'rules', parentNavigatorKey: _rootKey, builder: (c, s) => const CustomRulesScreen()),
                   GoRoute(path: 'tabs', parentNavigatorKey: _rootKey, builder: (c, s) => const NavTabsScreen()),
+                  GoRoute(path: 'sync', parentNavigatorKey: _rootKey, builder: (c, s) => const SyncScreen()),
                 ],
               ),
             ]),

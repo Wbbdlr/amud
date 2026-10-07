@@ -125,7 +125,7 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  if (url.pathname.includes('/api/push/')) return;
+  if (url.pathname.includes('/api/')) return;
 
   // App shell: serve cached index.html for navigations (offline-first),
   // refreshing it in the background.

@@ -26,8 +26,22 @@ services:
       VAPID_CONTACT: ${VAPID_CONTACT:-mailto:admin@amud.page}
       PUSH_PUBLIC_ORIGIN: ${PUSH_PUBLIC_ORIGIN:-https://amud.page}
 
+  sync:
+    profiles: [sync]
+    build: tool/sync
+    networks:
+      push-proxy:
+        ipv4_address: 172.30.86.4
+    restart: unless-stopped
+    volumes:
+      - sync-data:/data
+    environment:
+      SYNC_TRUSTED_PROXIES: 172.30.86.2/32
+      SYNC_PUBLIC_ORIGIN: ${SYNC_PUBLIC_ORIGIN:-https://amud.page}
+
 volumes:
   push-data:
+  sync-data:
 
 networks:
   push-proxy:
