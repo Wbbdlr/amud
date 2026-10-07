@@ -20,9 +20,11 @@ import 'features/calendar/calendar_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/learning/learning_screen.dart';
 import 'features/settings/font_gallery_screen.dart';
+import 'features/settings/offline_screen.dart';
 import 'features/settings/location_screen.dart';
 import 'features/settings/nav_tabs_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/shiurim/shiurim_screen.dart';
 import 'features/setup/launch_animation.dart';
 import 'features/setup/setup_screen.dart';
 import 'features/update/update_screen.dart';
@@ -34,6 +36,7 @@ import 'features/siddur/versions_screen.dart';
 import 'features/tehillim/tehillim_data.dart';
 import 'features/tehillim/tehillim_reader.dart';
 import 'features/tehillim/tehillim_screen.dart';
+import 'features/torah/shnayim_mikra_screen.dart';
 import 'features/torah/torah_screen.dart';
 import 'features/zmanim/zmanim_screen.dart';
 
@@ -55,7 +58,8 @@ final routerProvider = Provider<GoRouter>((ref) => GoRouter(
       // The app opens on the first tab of the bar. A launch link opens over
       // it after the first frame (see openFromOutside), so back and the tab
       // bar lead somewhere.
-      initialLocation: _tabRoots.elementAt(navTabs.indexWhere((t) => t.$1 == ref.read(settingsProvider).navTabs.first)),
+      initialLocation: _tabRoots.elementAt(
+          [for (final id in ref.read(settingsProvider).navTabs) ?NavItem.of(id)?.branch].firstOrNull ?? 0),
       // First run: walk through the main options before anything else.
       redirect: (context, state) {
         final done = ref.read(settingsProvider).setupDone;
@@ -75,21 +79,12 @@ final routerProvider = Provider<GoRouter>((ref) => GoRouter(
                 builder: (c, s) => LibraryScreen(section: s.uri.queryParameters['section']),
                 routes: [
                   GoRoute(path: 'seasons', builder: (c, s) => const SeasonsScreen()),
+                  // Tehillim moved to the Torah tab; links saved before (shortcuts,
+                  // widgets) still lead there.
                   GoRoute(
                     path: 'tehillim',
-                    builder: (c, s) => const TehillimScreen(),
-                    routes: [
-                      GoRoute(
-                        path: 'read',
-                        builder: (c, s) {
-                          final q = s.uri.queryParameters;
-                          return TehillimReaderScreen(
-                            key: ValueKey(s.uri.toString()),
-                            portion: Portion(q['en'] ?? 'Tehillim', q['he'] ?? 'תהלים', Portion.decode(q['p'] ?? '1')),
-                          );
-                        },
-                      ),
-                    ],
+                    redirect: (c, s) => s.uri.replace(path: s.uri.path.replaceFirst('/siddur/', '/torah/')).toString(),
+                    routes: [GoRoute(path: 'read', redirect: (c, s) => s.uri.replace(path: '/torah/tehillim/read').toString())],
                   ),
                   GoRoute(
                     path: 'book/:book',
@@ -113,6 +108,38 @@ final routerProvider = Provider<GoRouter>((ref) => GoRouter(
                 path: '/torah',
                 builder: (c, s) => const TorahScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'tehillim',
+                    builder: (c, s) => const TehillimScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'read',
+                        builder: (c, s) {
+                          final q = s.uri.queryParameters;
+                          return TehillimReaderScreen(
+                            key: ValueKey(s.uri.toString()),
+                            portion: Portion(q['en'] ?? 'Tehillim', q['he'] ?? 'תהלים', Portion.decode(q['p'] ?? '1')),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'shnayim-mikra',
+                    builder: (c, s) => ShnayimMikraScreen(
+                      key: ValueKey(s.uri.toString()),
+                      parsha: s.uri.queryParameters['parsha'],
+                      year: int.tryParse(s.uri.queryParameters['year'] ?? ''),
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: 'progress',
+                        builder: (c, s) => ShnayimMikraProgressScreen(year: int.tryParse(s.uri.queryParameters['year'] ?? '')),
+                      ),
+                    ],
+                  ),
+                  // Opened from the Torah tab, so it doesn't add a tab to the bar.
+                  GoRoute(path: 'shiurim', builder: (c, s) => const ShiurimScreen()),
                   GoRoute(
                     path: ':category',
                     builder: (c, s) => TorahCategoryScreen(category: s.pathParameters['category']!),
@@ -142,6 +169,7 @@ final routerProvider = Provider<GoRouter>((ref) => GoRouter(
                 ],
               ),
             ]),
+            StatefulShellBranch(routes: [GoRoute(path: '/shiurim', builder: (c, s) => const ShiurimScreen())]),
             StatefulShellBranch(routes: [
               GoRoute(
                 path: '/settings',
@@ -149,6 +177,7 @@ final routerProvider = Provider<GoRouter>((ref) => GoRouter(
                 routes: [
                   GoRoute(path: 'location', parentNavigatorKey: _rootKey, builder: (c, s) => const LocationScreen()),
                   GoRoute(path: 'fonts', parentNavigatorKey: _rootKey, builder: (c, s) => const FontGalleryScreen()),
+                  GoRoute(path: 'offline', parentNavigatorKey: _rootKey, builder: (c, s) => const OfflineScreen()),
                   GoRoute(path: 'integrations', parentNavigatorKey: _rootKey, builder: (c, s) => const IntegrationsScreen()),
                   GoRoute(path: 'cards', parentNavigatorKey: _rootKey, builder: (c, s) => const CardGalleryScreen()),
                   GoRoute(path: 'rules', parentNavigatorKey: _rootKey, builder: (c, s) => const CustomRulesScreen()),
@@ -200,7 +229,7 @@ class SiddurApp extends ConsumerWidget {
 }
 
 /// The first screen of each tab, in [navTabs] order.
-const _tabRoots = {'/', '/siddur', '/zmanim', '/torah', '/settings'};
+const _tabRoots = {'/', '/siddur', '/zmanim', '/torah', '/shiurim', '/settings'};
 
 /// Native navigation chrome: Cupertino tab bar on iOS/macOS, Material 3
 /// navigation bar on phones, navigation rail on wide screens (tablet/web).
@@ -211,19 +240,27 @@ class AdaptiveShell extends ConsumerWidget {
   final bool atTabRoot;
   const AdaptiveShell({super.key, required this.shell, this.atTabRoot = false});
 
-  /// The branches on the bar, in the user's order (see [NavTabsScreen]).
-  /// A hidden tab opened anyway (by a link, say) shows at the end while
-  /// it's open, so the bar always marks where you are.
-  List<int> _tabs(List<String> ids) {
-    final tabs = [for (final id in ids) navTabs.indexWhere((t) => t.$1 == id)]..removeWhere((i) => i < 0);
-    return tabs.contains(shell.currentIndex) ? tabs : [...tabs, shell.currentIndex];
+  /// The tabs and shortcuts on the bar, in the user's order (see
+  /// [NavTabsScreen]). A hidden tab opened anyway (by a link, say) shows at
+  /// the end while it's open, so the bar always marks where you are.
+  List<NavItem> _items(List<String> ids) {
+    final items = [for (final id in ids) ?NavItem.of(id)];
+    return items.any((t) => t.branch == shell.currentIndex) ? items : [...items, NavItem.of(navTabs[shell.currentIndex].$1)!];
   }
 
   void _go(int branch) => shell.goBranch(branch, initialLocation: branch == shell.currentIndex);
 
+  /// Opens [item]: its tab, or a shortcut's page the way a link would.
+  void _open(BuildContext context, NavItem item) {
+    if (item.branch case final b?) return _go(b);
+    analytics.event('nav_shortcut', {'to': item.id});
+    openFromOutside(GoRouter.of(context), item.route!);
+  }
+
   /// The tabs on either side, for [TabSwipe]; none while focus mode hides
-  /// the navigation.
-  Widget _swipeable(bool focus, List<int> tabs) {
+  /// the navigation. Shortcuts are passed over: they open a page, not a tab.
+  Widget _swipeable(bool focus, List<NavItem> items) {
+    final tabs = [for (final t in items) ?t.branch];
     final i = tabs.indexOf(shell.currentIndex);
     VoidCallback? to(int j) => !atTabRoot || focus || j < 0 || j >= tabs.length
         ? null
@@ -237,10 +274,10 @@ class AdaptiveShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final wide = MediaQuery.sizeOf(context).width >= 900;
-    final tabs = _tabs(ref.watch(settingsProvider.select((s) => s.navTabs)));
-    final selected = tabs.indexOf(shell.currentIndex);
-    void onTap(int i) => _go(tabs[i]);
-    final shown = [for (final b in tabs) navTabs[b]];
+    final items = _items(ref.watch(settingsProvider.select((s) => s.navTabs)));
+    final labels = ref.watch(settingsProvider.select((s) => s.navLabels));
+    final selected = items.indexWhere((t) => t.branch == shell.currentIndex);
+    void onTap(int i) => _open(context, items[i]);
     // Reader focus mode slides the navigation out of view.
     final focus = ref.watch(focusModeProvider);
     Widget away(Widget bar, {required bool vertical}) => ClipRect(
@@ -253,6 +290,9 @@ class AdaptiveShell extends ConsumerWidget {
             child: bar,
           ),
         );
+    // Without labels, the label still names the item to screen readers and
+    // in a tooltip.
+    Widget icon(IconData i, NavItem t) => labels ? Icon(i) : Tooltip(message: context.tr(t.label), child: Icon(i));
     if (wide) {
       return Scaffold(
         body: Row(children: [
@@ -262,37 +302,44 @@ class AdaptiveShell extends ConsumerWidget {
               NavigationRail(
                 selectedIndex: selected,
                 onDestinationSelected: onTap,
-                labelType: NavigationRailLabelType.all,
+                labelType: labels ? NavigationRailLabelType.all : NavigationRailLabelType.none,
                 destinations: [
-                  for (final (_, o, s, _, l) in shown) NavigationRailDestination(icon: Icon(o), selectedIcon: Icon(s), label: Text(context.tr(l))),
+                  for (final t in items)
+                    NavigationRailDestination(icon: icon(t.outlined, t), selectedIcon: icon(t.selected, t), label: Text(context.tr(t.label))),
                 ],
               ),
               const VerticalDivider(width: 1),
             ]),
           ),
-          Expanded(child: _swipeable(focus, tabs)),
+          Expanded(child: _swipeable(focus, items)),
         ]),
       );
     }
     if (isCupertinoPlatform) {
       return Scaffold(
-        body: _swipeable(focus, tabs),
+        body: _swipeable(focus, items),
         bottomNavigationBar: away(vertical: true, CupertinoTabBar(
           currentIndex: selected,
           onTap: onTap,
           activeColor: Theme.of(context).colorScheme.primary,
-          items: [for (final (_, _, _, c, l) in shown) BottomNavigationBarItem(icon: Icon(c), label: context.tr(l))],
+          items: [
+            for (final t in items) BottomNavigationBarItem(icon: icon(t.cupertino, t), label: labels ? context.tr(t.label) : null),
+          ],
         )),
       );
     }
     return Scaffold(
-      body: _swipeable(focus, tabs),
+      body: _swipeable(focus, items),
       bottomNavigationBar: away(
         vertical: true,
         NavigationBar(
           selectedIndex: selected,
           onDestinationSelected: onTap,
-          destinations: [for (final (_, o, s, _, l) in shown) NavigationDestination(icon: Icon(o), selectedIcon: Icon(s), label: context.tr(l))],
+          labelBehavior: labels ? NavigationDestinationLabelBehavior.alwaysShow : NavigationDestinationLabelBehavior.alwaysHide,
+          height: labels ? null : 64,
+          destinations: [
+            for (final t in items) NavigationDestination(icon: Icon(t.outlined), selectedIcon: Icon(t.selected), label: context.tr(t.label)),
+          ],
         ),
       ),
     );
